@@ -8,4 +8,8 @@
 
 int process_macroblock(void);
 
+int mb_pred(int mb_type);
+
+int sub_mb_pred(int mb_type);
+
 #endif
