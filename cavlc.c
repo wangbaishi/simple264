@@ -118,17 +118,106 @@ struct coeff_token *decode_coeff_vlc(struct coeff_token *table)
     return NULL;
 }
 
+int decode_level_prefix(void)
+{
+    int bit = -1;
+    
+    while ((bit = stream_get_one_bit()) == 0)
+        bit ++;
+    
+    return bit;
+}
+
 int decode_level(int total_coeff, int t_one, int *level)
 {
     int i = 0;
+    
+    int suffix_len;
     
     for (i = 0; i < t_one; i ++)
     {
         level[i] = 1 - 2 * stream_get_one_bit();
     }
     
+    if (total_coeff > 10 && t_one < 3)
+        suffix_len = 1;
+    else
+        suffix_len = 0;
     
+    for (i = 0; i < total_coeff - t_one; i ++)
+    {
+        int level_prefix = decode_level_prefix();
+        int level_suffix_size = suffix_len;
+        int level_suffix;
+        int level_code;
+        int level_prefix_effect;
+        
+        if ((level_prefix == 14) && (suffix_len == 0))
+            level_suffix_size = 4;
+        if (level_prefix >= 15)
+            level_suffix_size = level_prefix -3;
+        
+        if (level_suffix_size > 0)
+            level_suffix = u(level_suffix_size);
+        else 
+            level_suffix = 0;
+        
+        level_prefix_effect = level_prefix;
+        
+        if (level_prefix_effect > 15)
+            level_prefix_effect = 15;
+        
+        level_code = level_prefix_effect << suffix_len + level_suffix;
+        
+        if (level_prefix >= 15 && suffix_len == 0)
+            level_code += 15;
+        if (level_prefix >= 16)
+            level_code += (1 << (level_prefix - 3)) - 4096;
+        
+        if (i == (0) && t_one < 3)
+            level_code += 2;
+        
+        if (level_code % 2 == 0)
+            level[i + t_one] = (level_coe + 2) >> 1;
+        else 
+            level[i + t_one] = (-level_coe - 1) >> 1;
+        
+        if (suffix_len == 0)
+            suffix_len = 1;
+        
+        if (abs(level[i + t_one]) > ( 3 << (suffix_len - 1)) && suffix_len < 6)
+            suffix_len ++;
+    }
 }
+
+struct tz_vlc{
+    int total_zeros;
+    int leading_zeros;
+    int value;
+};
+
+struct tz_vlc tz16[] = {
+    {0, 0, 1},
+    {1, 1, 3},
+    {2, 1, 2},
+    {3, 2, 3},
+    {4, 2, 2},
+    {5, 3, 3},
+    {6, 3, 2},
+    {7, 4, 3},
+    {8, 4, 2},
+    {9, 5, 3},
+    {10, 5, 2},
+    {11, 6, 3},
+    {12, 6, 2},
+    {13, 7, 3},
+    {14, 7, 2},
+    {15, 8, 1}
+};
+    
+int decode_run(int total_coeff, int max_coeff)
+{
+    
     
         
         
